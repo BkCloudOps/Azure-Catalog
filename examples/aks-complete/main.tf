@@ -92,7 +92,7 @@ variable "admin_group_object_ids" {
 # =============================================================================
 
 module "naming" {
-  source = "../../modules/naming"
+  source = "../../modules/core/naming"
 
   organization_prefix = var.organization_prefix
   application_name    = var.application_name
@@ -107,7 +107,7 @@ module "naming" {
 # =============================================================================
 
 module "resource_group" {
-  source = "../../modules/resource-group"
+  source = "../../modules/core/resource-group"
 
   naming      = module.naming.names
   location    = var.location
@@ -121,7 +121,7 @@ module "resource_group" {
 # =============================================================================
 
 module "log_analytics" {
-  source = "../../modules/log-analytics"
+  source = "../../modules/monitoring/log-analytics"
 
   naming              = module.naming.names
   location            = var.location
@@ -143,7 +143,7 @@ module "log_analytics" {
 # =============================================================================
 
 module "virtual_network" {
-  source = "../../modules/virtual-network"
+  source = "../../modules/networking/virtual-network"
 
   naming              = module.naming.names
   location            = var.location
@@ -202,7 +202,7 @@ module "virtual_network" {
 # =============================================================================
 
 module "aks_identity" {
-  source = "../../modules/managed-identity"
+  source = "../../modules/identity/managed-identity"
 
   naming              = { managed_identity = "${module.naming.names.managed_identity}-aks" }
   location            = var.location
@@ -212,7 +212,7 @@ module "aks_identity" {
 
 # Kubelet Identity (for pulling from ACR)
 module "kubelet_identity" {
-  source = "../../modules/managed-identity"
+  source = "../../modules/identity/managed-identity"
 
   naming              = { managed_identity = "${module.naming.names.managed_identity}-kubelet" }
   location            = var.location
@@ -225,7 +225,7 @@ module "kubelet_identity" {
 # =============================================================================
 
 module "container_registry" {
-  source = "../../modules/container-registry"
+  source = "../../modules/container/container-registry"
 
   naming              = module.naming.names
   location            = var.location
@@ -251,7 +251,7 @@ module "container_registry" {
 # =============================================================================
 
 module "key_vault" {
-  source = "../../modules/key-vault"
+  source = "../../modules/storage/key-vault"
 
   naming              = module.naming.names
   location            = var.location
@@ -279,7 +279,7 @@ module "key_vault" {
 # =============================================================================
 
 module "storage_account" {
-  source = "../../modules/storage-account"
+  source = "../../modules/storage/storage-account"
 
   naming              = module.naming.names
   location            = var.location
@@ -308,7 +308,7 @@ module "storage_account" {
 # =============================================================================
 
 module "aks" {
-  source = "../../modules/aks"
+  source = "../../modules/container/aks"
 
   naming              = module.naming.names
   location            = var.location
@@ -453,7 +453,7 @@ module "aks" {
 
 # Create a managed identity for a specific workload
 module "app_workload_identity" {
-  source = "../../modules/managed-identity"
+  source = "../../modules/identity/managed-identity"
 
   naming              = { managed_identity = "${module.naming.names.managed_identity}-myapp" }
   location            = var.location

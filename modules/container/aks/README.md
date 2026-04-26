@@ -6,8 +6,10 @@ Creates a production-ready Azure Kubernetes Service cluster with support for mul
 
 - ✅ Azure AD integration with RBAC
 - ✅ Multiple node pool configurations (system and user pools)
+- ✅ **Windows and Linux node pools**
 - ✅ Spot node pool support
-- ✅ Azure CNI with Overlay mode (IP-efficient)
+- ✅ **Easy network profile switching** (kubenet, Azure CNI, CNI Overlay, CNI Cilium)
+- ✅ **Uniform pod CIDR** (192.168.0.0/16) across deployments
 - ✅ Cilium for eBPF data plane
 - ✅ Workload Identity for pod authentication
 - ✅ Key Vault CSI driver integration
@@ -18,6 +20,27 @@ Creates a production-ready Azure Kubernetes Service cluster with support for mul
 - ✅ Microsoft Defender for Containers
 - ✅ Image cleaner
 - ✅ Application Gateway Ingress Controller (AGIC)
+
+## Network Profile Presets
+
+Switch easily between network configurations using `network_profile_preset`:
+
+| Preset | Description | Use Case |
+|--------|-------------|----------|
+| `kubenet` | Basic networking with route tables | Small clusters, cost-sensitive |
+| `azure_cni` | Traditional Azure CNI (pods use VNet IPs) | Requires large subnets |
+| `azure_cni_overlay` | **Azure CNI Overlay (recommended)** | IP-efficient, uniform pod CIDR |
+| `azure_cni_cilium` | Azure CNI with Cilium eBPF | High performance, advanced policies |
+| `custom` | Use individual network_* variables | Custom configurations |
+
+**Default Pod CIDR:** `192.168.0.0/16` (uniform across all deployments for consistency)
+
+```hcl
+# Easy network switching - just change the preset!
+network_profile_preset = "azure_cni_overlay"  # Default, recommended
+# network_profile_preset = "azure_cni_cilium" # For high performance
+# network_profile_preset = "kubenet"          # For small clusters
+```
 
 ## Usage
 
@@ -39,6 +62,9 @@ module "aks" {
   naming              = module.naming.names
   location            = "eastus"
   resource_group_name = module.resource_group.name
+
+  # Network - just pick a preset!
+  network_profile_preset = "azure_cni_overlay"
 
   default_node_pool = {
     name           = "system"
@@ -78,6 +104,14 @@ module "aks" {
   # DNS
   dns_prefix                  = ""  # Auto-generated from cluster name
   dns_prefix_private_cluster  = ""
+
+  # ==========================================================================
+  # Network Profile - Easy switching between configurations
+  # ==========================================================================
+  network_profile_preset = "azure_cni_overlay"  # or: kubenet, azure_cni, azure_cni_cilium, custom
+  # pod_cidr      = "192.168.0.0/16"  # Default uniform CIDR for overlay/kubenet
+  # service_cidr  = "10.96.0.0/16"    # Service CIDR
+  # dns_service_ip = "10.96.0.10"     # DNS service IP
 
   # ==========================================================================
   # Kubernetes Version and Upgrades
@@ -238,20 +272,41 @@ module "aks" {
         "nvidia.com/gpu=present:NoSchedule"
       ]
     }
+
+    # ==========================================================================
+    # Windows Node Pool for .NET workloads
+    # ==========================================================================
+    "windows" = {
+      vm_size            = "Standard_D4s_v3"
+      os_type            = "Windows"
+      os_sku             = "Windows2022"  # or Windows2019
+      vnet_subnet_id     = module.vnet.subnet_ids["aks-user"]
+      enable_auto_scaling = true
+      min_count          = 1
+      max_count          = 5
+      max_pods           = 30
+      zones              = ["1", "2", "3"]
+      mode               = "User"
+
+      node_labels = {
+        "os"       = "windows"
+        "workload" = "dotnet"
+      }
+
+      node_taints = [
+        "os=windows:NoSchedule"
+      ]
+    }
   }
 
-  # ==========================================================================
-  # Network Configuration
-  # ==========================================================================
-  network_plugin      = "azure"      # azure, kubenet, none
-  network_plugin_mode = "overlay"    # Saves IP addresses
-  network_policy      = "azure"      # azure, calico, cilium
-  network_data_plane  = "azure"      # azure, cilium
-  service_cidr        = "10.0.0.0/16"
-  dns_service_ip      = "10.0.0.10"
-  pod_cidr            = "10.244.0.0/16"  # For kubenet
+  # Windows node pool credentials (required when using Windows pools)
+  enable_windows_node_pools = true
+  windows_admin_username    = "azureadmin"
+  windows_admin_password    = var.windows_password  # Use a secret!
 
+  # ==========================================================================
   # Outbound configuration
+  # ==========================================================================
   outbound_type     = "userAssignedNATGateway"  # loadBalancer, userDefinedRouting, userAssignedNATGateway, managedNATGateway
   load_balancer_sku = "standard"
 
@@ -430,9 +485,10 @@ module "aks_dev" {
 | kubernetes_version | Kubernetes version | `string` | `null` | no |
 | sku_tier | Cluster SKU tier (Free/Standard) | `string` | `"Free"` | no |
 | private_cluster_enabled | Enable private cluster | `bool` | `false` | no |
-| network_plugin | Network plugin (azure/kubenet/none) | `string` | `"azure"` | no |
-| network_plugin_mode | Network mode (overlay) | `string` | `"overlay"` | no |
-| additional_node_pools | Additional node pools | `any` | `{}` | no |
+| **network_profile_preset** | **Easy network switching** | `string` | `"azure_cni_overlay"` | no |
+| pod_cidr | Pod CIDR (uniform default) | `string` | `"192.168.0.0/16"` | no |
+| additional_node_pools | Additional node pools (Linux/Windows) | `any` | `{}` | no |
+| enable_windows_node_pools | Enable Windows pools | `bool` | `false` | no |
 | oms_agent_enabled | Enable Container Insights | `bool` | `true` | no |
 | workload_identity_enabled | Enable Workload Identity | `bool` | `true` | no |
 
@@ -449,38 +505,56 @@ module "aks_dev" {
 | kube_config | Raw kubeconfig (sensitive) |
 | kube_admin_config | Raw admin kubeconfig (sensitive) |
 | node_resource_group | Node resource group name |
+| effective_network_config | Applied network configuration |
 | kubelet_identity_client_id | Kubelet identity client ID |
 | principal_id | Cluster identity principal ID |
 
-## Network Configurations
+## Network Profile Presets
+
+Use `network_profile_preset` for easy configuration switching:
+
+### Kubenet (Small Clusters)
+```hcl
+network_profile_preset = "kubenet"
+# Automatically sets: network_plugin=kubenet, network_policy=calico
+# Pod CIDR: 192.168.0.0/16 (routed via route tables)
+```
 
 ### Azure CNI Overlay (Recommended)
 ```hcl
-network_plugin      = "azure"
-network_plugin_mode = "overlay"
-network_policy      = "azure"
+network_profile_preset = "azure_cni_overlay"
+# Automatically sets: network_plugin=azure, network_plugin_mode=overlay
+# Pod CIDR: 192.168.0.0/16 (virtual, not VNet IPs)
 ```
 - Most IP-efficient for large clusters
 - Pods get IPs from virtual `pod_cidr`, not subnet
 
 ### Azure CNI (Traditional)
 ```hcl
-network_plugin      = "azure"
-network_plugin_mode = ""
-network_policy      = "azure"
+network_profile_preset = "azure_cni"
+# Automatically sets: network_plugin=azure, network_plugin_mode=null
+# No pod_cidr (pods use subnet IPs directly)
 ```
 - Pods get IPs directly from subnet
 - Requires large subnet (/16 or larger)
 
-### Cilium eBPF
+### Azure CNI with Cilium eBPF (High Performance)
 ```hcl
-network_plugin      = "azure"
-network_plugin_mode = "overlay"
-network_policy      = "cilium"
-network_data_plane  = "cilium"
+network_profile_preset = "azure_cni_cilium"
+# Automatically sets: network_plugin=azure, network_data_plane=cilium
+# Pod CIDR: 192.168.0.0/16
 ```
 - High-performance eBPF networking
-- Advanced network policies
+- Advanced network policies with Cilium
+
+### Custom Configuration
+```hcl
+network_profile_preset = "custom"
+network_plugin         = "azure"
+network_plugin_mode    = "overlay"
+network_policy         = "calico"
+network_data_plane     = "azure"
+```
 
 ## Node Pool VM Sizes
 
@@ -491,6 +565,30 @@ network_data_plane  = "cilium"
 | Memory Optimized | Standard_E2s_v3, Standard_E4s_v3, Standard_E8s_v3 |
 | GPU | Standard_NC6s_v3, Standard_NC12s_v3, Standard_NV6 |
 | High-Performance | Standard_HB60rs, Standard_HC44rs |
+
+## Windows Node Pools
+
+Enable Windows workloads (e.g., .NET applications):
+
+```hcl
+# Enable Windows support
+enable_windows_node_pools = true
+windows_admin_username    = "azureadmin"
+windows_admin_password    = var.windows_password
+
+# Add Windows node pool
+additional_node_pools = {
+  "windows" = {
+    vm_size     = "Standard_D4s_v3"
+    os_type     = "Windows"
+    os_sku      = "Windows2022"  # or "Windows2019"
+    min_count   = 1
+    max_count   = 5
+    node_taints = ["os=windows:NoSchedule"]
+    node_labels = { "os" = "windows" }
+  }
+}
+```
 
 ## Connecting to the Cluster
 

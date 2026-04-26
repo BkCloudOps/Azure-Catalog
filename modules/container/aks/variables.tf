@@ -233,26 +233,53 @@ variable "default_node_pool" {
 
 variable "additional_node_pools" {
   description = <<-EOF
-    Map of additional node pools. Each pool can have:
+    Map of additional node pools supporting both Linux and Windows.
+    
+    Each pool can have:
     - vm_size: Required VM size
+    - os_type: "Linux" (default) or "Windows"
+    - os_sku: For Linux: "Ubuntu", "AzureLinux", "CBLMariner"
+              For Windows: "Windows2019", "Windows2022"
     - vnet_subnet_id: Optional subnet (defaults to system pool subnet)
     - node_count, enable_auto_scaling, min_count, max_count
-    - max_pods, os_disk_size_gb, os_disk_type, os_sku, os_type
+    - max_pods, os_disk_size_gb, os_disk_type
     - zones, mode (User/System), orchestrator_version
     - priority (Regular/Spot), spot_max_price, eviction_policy
     - node_labels, node_taints
     - kubelet_config: Custom kubelet configuration
     - max_surge: Max surge during upgrades
     
-    Example for a spot node pool:
+    Example with Linux and Windows pools:
     {
+      # Linux user pool
+      "linux-apps" = {
+        vm_size     = "Standard_D4s_v3"
+        os_type     = "Linux"
+        os_sku      = "Ubuntu"
+        min_count   = 2
+        max_count   = 10
+      }
+      
+      # Windows pool for .NET workloads
+      "windows-apps" = {
+        vm_size     = "Standard_D4s_v3"
+        os_type     = "Windows"
+        os_sku      = "Windows2022"
+        min_count   = 1
+        max_count   = 5
+        node_taints = ["os=windows:NoSchedule"]
+        node_labels = { "os" = "windows", "workload" = "dotnet" }
+      }
+      
+      # Spot pool for batch jobs
       "spot" = {
-        vm_size      = "Standard_D4s_v3"
-        priority     = "Spot"
-        spot_max_price = -1
+        vm_size         = "Standard_D4s_v3"
+        os_type         = "Linux"
+        priority        = "Spot"
+        spot_max_price  = -1
         eviction_policy = "Delete"
-        node_taints  = ["kubernetes.azure.com/scalesetpriority=spot:NoSchedule"]
-        node_labels  = { "kubernetes.azure.com/scalesetpriority" = "spot" }
+        node_taints     = ["kubernetes.azure.com/scalesetpriority=spot:NoSchedule"]
+        node_labels     = { "kubernetes.azure.com/scalesetpriority" = "spot" }
       }
     }
   EOF
@@ -260,13 +287,51 @@ variable "additional_node_pools" {
   default     = {}
 }
 
+variable "enable_windows_node_pools" {
+  description = "Enable Windows node pool support. Sets windows_profile with admin credentials."
+  type        = bool
+  default     = false
+}
+
+variable "windows_admin_username" {
+  description = "Admin username for Windows node pools (required if enable_windows_node_pools = true)"
+  type        = string
+  default     = "azureadmin"
+}
+
+variable "windows_admin_password" {
+  description = "Admin password for Windows node pools (required if enable_windows_node_pools = true)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 # =============================================================================
 # Network Profile
 # =============================================================================
 
+variable "network_profile_preset" {
+  description = <<-EOF
+    Predefined network profile configurations for easy switching:
+    - kubenet:           Basic networking with route tables (small clusters)
+    - azure_cni:         Traditional Azure CNI (pods get VNet IPs, requires large subnets)
+    - azure_cni_overlay: Azure CNI Overlay mode (recommended, IP-efficient)
+    - azure_cni_cilium:  Azure CNI with Cilium eBPF (high performance)
+    - custom:            Use individual network_* variables for custom config
+    
+    Default overlay CIDR: 192.168.0.0/16 (maintains uniformity across deployments)
+  EOF
+  type        = string
+  default     = "azure_cni_overlay"
+  validation {
+    condition     = contains(["kubenet", "azure_cni", "azure_cni_overlay", "azure_cni_cilium", "custom"], var.network_profile_preset)
+    error_message = "Network profile preset must be one of: kubenet, azure_cni, azure_cni_overlay, azure_cni_cilium, custom."
+  }
+}
+
 variable "network_plugin" {
   description = <<-EOF
-    Network plugin for the cluster. Options:
+    Network plugin for the cluster (used when network_profile_preset = custom). Options:
     - azure: Azure CNI (recommended for production)
     - kubenet: Basic networking with route tables
     - none: Bring your own CNI
@@ -281,7 +346,7 @@ variable "network_plugin" {
 
 variable "network_plugin_mode" {
   description = <<-EOF
-    Network plugin mode for Azure CNI. Options:
+    Network plugin mode for Azure CNI (used when network_profile_preset = custom). Options:
     - overlay: Azure CNI Overlay (recommended, saves IP addresses)
     - (empty): Traditional Azure CNI
   EOF
@@ -321,19 +386,24 @@ variable "network_data_plane" {
 variable "dns_service_ip" {
   description = "IP address within the service CIDR for DNS service"
   type        = string
-  default     = "10.0.0.10"
+  default     = "10.96.0.10"
 }
 
 variable "service_cidr" {
   description = "CIDR for Kubernetes services. Must not overlap with VNet address space"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "10.96.0.0/16"
 }
 
 variable "pod_cidr" {
-  description = "CIDR for pods (only used with kubenet network plugin)"
+  description = <<-EOF
+    CIDR for pods. Default: 192.168.0.0/16 (uniform across all deployments)
+    - kubenet: Pods get IPs from this CIDR via routes
+    - azure_cni_overlay: Pods get IPs from this virtual CIDR (not routable outside cluster)
+    - azure_cni: Not used (pods get VNet IPs from subnet)
+  EOF
   type        = string
-  default     = "10.244.0.0/16"
+  default     = "192.168.0.0/16"
 }
 
 variable "outbound_type" {

@@ -5,6 +5,66 @@
 # =============================================================================
 
 # =============================================================================
+# Network Profile Presets - Computed Values
+# =============================================================================
+
+locals {
+  # Network profile configurations based on preset
+  network_presets = {
+    kubenet = {
+      network_plugin      = "kubenet"
+      network_plugin_mode = null
+      network_policy      = "calico"
+      network_data_plane  = "azure"
+      pod_cidr            = var.pod_cidr  # Required for kubenet
+    }
+    azure_cni = {
+      network_plugin      = "azure"
+      network_plugin_mode = null
+      network_policy      = "azure"
+      network_data_plane  = "azure"
+      pod_cidr            = null  # Pods use subnet IPs
+    }
+    azure_cni_overlay = {
+      network_plugin      = "azure"
+      network_plugin_mode = "overlay"
+      network_policy      = "azure"
+      network_data_plane  = "azure"
+      pod_cidr            = var.pod_cidr  # Default: 192.168.0.0/16
+    }
+    azure_cni_cilium = {
+      network_plugin      = "azure"
+      network_plugin_mode = "overlay"
+      network_policy      = "cilium"
+      network_data_plane  = "cilium"
+      pod_cidr            = var.pod_cidr  # Default: 192.168.0.0/16
+    }
+    custom = {
+      network_plugin      = var.network_plugin
+      network_plugin_mode = var.network_plugin_mode
+      network_policy      = var.network_policy
+      network_data_plane  = var.network_data_plane
+      pod_cidr            = var.pod_cidr
+    }
+  }
+
+  # Select the appropriate network configuration
+  network_config = local.network_presets[var.network_profile_preset]
+
+  # Determine if we need pod_cidr (kubenet or overlay modes)
+  effective_pod_cidr = (
+    local.network_config.network_plugin == "kubenet" ||
+    local.network_config.network_plugin_mode == "overlay"
+  ) ? local.network_config.pod_cidr : null
+
+  # Check if any Windows node pools are defined
+  has_windows_pools = var.enable_windows_node_pools || length([
+    for k, v in var.additional_node_pools : k
+    if lookup(v, "os_type", "Linux") == "Windows"
+  ]) > 0
+}
+
+# =============================================================================
 # AKS Cluster
 # =============================================================================
 
@@ -108,13 +168,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   # =============================================================================
 
   network_profile {
-    network_plugin      = var.network_plugin
-    network_plugin_mode = var.network_plugin == "azure" ? var.network_plugin_mode : null
-    network_policy      = var.network_policy
-    network_data_plane  = var.network_data_plane
+    network_plugin      = local.network_config.network_plugin
+    network_plugin_mode = local.network_config.network_plugin == "azure" ? local.network_config.network_plugin_mode : null
+    network_policy      = local.network_config.network_policy
+    network_data_plane  = local.network_config.network_data_plane
     dns_service_ip      = var.dns_service_ip
     service_cidr        = var.service_cidr
-    pod_cidr            = var.network_plugin == "kubenet" ? var.pod_cidr : null
+    pod_cidr            = local.effective_pod_cidr
     outbound_type       = var.outbound_type
     load_balancer_sku   = var.load_balancer_sku
     
@@ -127,6 +187,18 @@ resource "azurerm_kubernetes_cluster" "this" {
         outbound_ports_allocated    = lookup(load_balancer_profile.value, "outbound_ports_allocated", null)
         idle_timeout_in_minutes     = lookup(load_balancer_profile.value, "idle_timeout_in_minutes", null)
       }
+    }
+  }
+
+  # =============================================================================
+  # Windows Profile (required for Windows node pools)
+  # =============================================================================
+
+  dynamic "windows_profile" {
+    for_each = local.has_windows_pools ? [1] : []
+    content {
+      admin_username = var.windows_admin_username
+      admin_password = var.windows_admin_password
     }
   }
 

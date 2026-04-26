@@ -99,6 +99,24 @@ output "network_profile" {
   value       = azurerm_kubernetes_cluster.this.network_profile
 }
 
+output "network_profile_preset" {
+  description = "The network profile preset used"
+  value       = var.network_profile_preset
+}
+
+output "effective_network_config" {
+  description = "The effective network configuration applied"
+  value = {
+    network_plugin      = local.network_config.network_plugin
+    network_plugin_mode = local.network_config.network_plugin_mode
+    network_policy      = local.network_config.network_policy
+    network_data_plane  = local.network_config.network_data_plane
+    pod_cidr            = local.effective_pod_cidr
+    service_cidr        = var.service_cidr
+    dns_service_ip      = var.dns_service_ip
+  }
+}
+
 output "node_resource_group" {
   description = "The resource group containing the cluster's node pools"
   value       = azurerm_kubernetes_cluster.this.node_resource_group

@@ -44,7 +44,7 @@ variable "location" {
 # =============================================================================
 
 module "naming" {
-  source = "../../modules/naming"
+  source = "../../modules/core/naming"
 
   organization_prefix = var.organization_prefix
   application_name    = var.application_name
@@ -53,7 +53,7 @@ module "naming" {
 }
 
 module "resource_group" {
-  source = "../../modules/resource-group"
+  source = "../../modules/core/resource-group"
 
   naming      = module.naming.names
   location    = var.location
@@ -61,7 +61,7 @@ module "resource_group" {
 }
 
 module "virtual_network" {
-  source = "../../modules/virtual-network"
+  source = "../../modules/networking/virtual-network"
 
   naming              = module.naming.names
   location            = var.location
@@ -79,7 +79,7 @@ module "virtual_network" {
 }
 
 module "aks" {
-  source = "../../modules/aks"
+  source = "../../modules/container/aks"
 
   naming              = module.naming.names
   location            = var.location

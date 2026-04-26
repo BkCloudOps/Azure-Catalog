@@ -26,7 +26,7 @@ cd Azure-Catalog
 ```hcl
 # Use the naming module for consistent resource names
 module "naming" {
-  source = "./modules/naming"
+  source = "./modules/core/naming"
 
   organization_prefix = "myorg"
   application_name    = "myapp"
@@ -36,7 +36,7 @@ module "naming" {
 
 # Create a resource group with generated name
 module "resource_group" {
-  source = "./modules/resource-group"
+  source = "./modules/core/resource-group"
 
   naming      = module.naming.names
   location    = "eastus"
@@ -54,46 +54,52 @@ terraform apply
 
 ## Module Catalog
 
-### Core Modules
+### 📦 Core (`modules/core/`)
 
 | Module | Description | Documentation |
 |--------|-------------|---------------|
-| [naming](./modules/naming) | Generates consistent names for all Azure resources | [README](./modules/naming/README.md) |
-| [resource-group](./modules/resource-group) | Creates resource groups with optional locks and policies | [README](./modules/resource-group/README.md) |
+| [naming](./modules/core/naming) | Generates consistent names for all Azure resources | [README](./modules/core/naming/README.md) |
+| [resource-group](./modules/core/resource-group) | Creates resource groups with optional locks and policies | [README](./modules/core/resource-group/README.md) |
 
-### Networking Modules
-
-| Module | Description | Documentation |
-|--------|-------------|---------------|
-| [virtual-network](./modules/virtual-network) | VNet with subnets, NSGs, route tables, and NAT Gateway | [README](./modules/virtual-network/README.md) |
-| [private-dns-zone](./modules/private-dns-zone) | Private DNS zones for private endpoints | [README](./modules/private-dns-zone/README.md) |
-
-### Container Modules (AKS Focus)
+### 🌐 Networking (`modules/networking/`)
 
 | Module | Description | Documentation |
 |--------|-------------|---------------|
-| [aks](./modules/aks) | Production-ready AKS cluster with node pools | [README](./modules/aks/README.md) |
-| [container-registry](./modules/container-registry) | Azure Container Registry with ACR Tasks | [README](./modules/container-registry/README.md) |
+| [virtual-network](./modules/networking/virtual-network) | VNet with subnets, NSGs, route tables, and NAT Gateway | [README](./modules/networking/virtual-network/README.md) |
+| [private-dns-zone](./modules/networking/private-dns-zone) | Private DNS zones for private endpoints | [README](./modules/networking/private-dns-zone/README.md) |
+| [bastion](./modules/networking/bastion) | Azure Bastion for secure RDP/SSH access | [README](./modules/networking/bastion/README.md) |
 
-### Identity & Security Modules
-
-| Module | Description | Documentation |
-|--------|-------------|---------------|
-| [managed-identity](./modules/managed-identity) | User-assigned managed identities with role assignments | [README](./modules/managed-identity/README.md) |
-| [key-vault](./modules/key-vault) | Key Vault with secrets, keys, and RBAC | [README](./modules/key-vault/README.md) |
-
-### Storage & Data Modules
+### 🐳 Container (`modules/container/`)
 
 | Module | Description | Documentation |
 |--------|-------------|---------------|
-| [storage-account](./modules/storage-account) | Storage accounts with containers, shares, and queues | [README](./modules/storage-account/README.md) |
-| [log-analytics](./modules/log-analytics) | Log Analytics workspace with solutions | [README](./modules/log-analytics/README.md) |
+| [aks](./modules/container/aks) | Production-ready AKS cluster with node pools | [README](./modules/container/aks/README.md) |
+| [container-registry](./modules/container/container-registry) | Azure Container Registry with geo-replication | [README](./modules/container/container-registry/README.md) |
 
-### Compute Modules
+### 🔐 Identity (`modules/identity/`)
 
 | Module | Description | Documentation |
 |--------|-------------|---------------|
-| [virtual-machine](./modules/virtual-machine) | Linux and Windows VMs with extensions | [README](./modules/virtual-machine/README.md) |
+| [managed-identity](./modules/identity/managed-identity) | User-assigned managed identities with role assignments | [README](./modules/identity/managed-identity/README.md) |
+
+### 💾 Storage (`modules/storage/`)
+
+| Module | Description | Documentation |
+|--------|-------------|---------------|
+| [storage-account](./modules/storage/storage-account) | Storage accounts with containers, shares, and queues | [README](./modules/storage/storage-account/README.md) |
+| [key-vault](./modules/storage/key-vault) | Key Vault with secrets, keys, and RBAC | [README](./modules/storage/key-vault/README.md) |
+
+### 📊 Monitoring (`modules/monitoring/`)
+
+| Module | Description | Documentation |
+|--------|-------------|---------------|
+| [log-analytics](./modules/monitoring/log-analytics) | Log Analytics workspace with solutions | [README](./modules/monitoring/log-analytics/README.md) |
+
+### 🖥️ Compute (`modules/compute/`)
+
+| Module | Description | Documentation |
+|--------|-------------|---------------|
+| [virtual-machine](./modules/compute/virtual-machine) | Linux and Windows VMs with extensions | [README](./modules/compute/virtual-machine/README.md) |
 
 ## Naming Convention
 
