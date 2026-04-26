@@ -1,0 +1,24 @@
+# =============================================================================
+# Example Terraform Variables
+# =============================================================================
+# Copy this file to terraform.tfvars and customize for your environment
+# =============================================================================
+
+# Organization and application naming
+# Pattern: {prefix}-{app}-{location}-{env}-{resource_type}
+# Example: acme-runners-cac-prd-rg
+
+organization_prefix = "acme"      # 3-8 characters max
+application_name    = "runners"
+environment         = "production"  # development, staging, production
+location            = "canadacentral"
+
+# Cost allocation
+cost_center = "IT-Platform"
+owner       = "platform-team@example.com"
+
+# AKS Admin Access
+# Get group IDs: az ad group show --group "Your-Group-Name" --query id -o tsv
+admin_group_object_ids = [
+  # "00000000-0000-0000-0000-000000000000"  # Add your Azure AD group IDs
+]

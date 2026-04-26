@@ -1,0 +1,194 @@
+# =============================================================================
+# Global Variables Template
+# =============================================================================
+# This file defines organization-wide variables that ensure consistency
+# across all Terraform projects. Copy this to your project's variables.tf
+# or include it as a shared module.
+#
+# Naming Pattern: {prefix}-{app}-{location}-{env}-{resource_type}
+# Example: acme-runners-cac-prd-rg
+# =============================================================================
+
+# =============================================================================
+# Required Variables
+# =============================================================================
+
+variable "organization_prefix" {
+  description = <<-EOF
+    Organization prefix for resource naming (3-8 characters).
+    This is the short identifier for your org that appears first in all names.
+    Examples: "acme", "contoso", "myorg", "abc"
+    
+    Pattern: {prefix}-{app}-{location}-{env}-{resource_type}
+    Example: acme-runners-cac-prd-rg
+  EOF
+  type        = string
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9]{2,7}$", var.organization_prefix))
+    error_message = "Organization prefix must be 3-8 alphanumeric characters, starting with a letter."
+  }
+}
+
+variable "application_name" {
+  description = <<-EOF
+    Name of the application or workload (2-20 characters).
+    Examples: "payments", "webapp", "api", "platform"
+    Used for resource naming and tagging.
+  EOF
+  type        = string
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-_]{2,20}$", var.application_name))
+    error_message = "Application name must be 2-20 alphanumeric characters, hyphens, or underscores."
+  }
+}
+
+variable "environment" {
+  description = <<-EOF
+    Environment name. Must be one of:
+    - development / dev
+    - staging / stg
+    - production / prod / prd
+    - test / tst
+    - uat
+    - qa
+    - sandbox / sbx
+  EOF
+  type        = string
+  validation {
+    condition = contains([
+      "development", "dev",
+      "staging", "stg",
+      "production", "prod", "prd",
+      "test", "tst",
+      "uat",
+      "qa",
+      "sandbox", "sbx"
+    ], lower(var.environment))
+    error_message = "Environment must be a valid environment name."
+  }
+}
+
+variable "location" {
+  description = <<-EOF
+    Azure region for resource deployment.
+    Common regions:
+    - US: eastus, eastus2, westus2, centralus
+    - Europe: westeurope, northeurope, uksouth
+    - Asia: southeastasia, eastasia, japaneast
+  EOF
+  type        = string
+}
+
+# =============================================================================
+# Optional Variables
+# =============================================================================
+
+variable "cost_center" {
+  description = "Cost center for billing and chargeback"
+  type        = string
+  default     = ""
+}
+
+variable "owner" {
+  description = "Owner email or team name for resource ownership"
+  type        = string
+  default     = ""
+}
+
+variable "project_name" {
+  description = "Project name for grouping related resources"
+  type        = string
+  default     = ""
+}
+
+variable "additional_tags" {
+  description = "Additional tags to merge with standard tags"
+  type        = map(string)
+  default     = {}
+}
+
+# =============================================================================
+# Environment-Specific Defaults
+# =============================================================================
+
+locals {
+  # Environment-specific configurations
+  env_config = {
+    development = {
+      sku_tier               = "Free"
+      redundancy             = "LRS"
+      retention_days         = 7
+      enable_delete_lock     = false
+      enable_monitoring      = false
+      min_node_count         = 1
+      max_node_count         = 3
+    }
+    staging = {
+      sku_tier               = "Free"
+      redundancy             = "ZRS"
+      retention_days         = 30
+      enable_delete_lock     = false
+      enable_monitoring      = true
+      min_node_count         = 2
+      max_node_count         = 5
+    }
+    production = {
+      sku_tier               = "Standard"
+      redundancy             = "ZRS"
+      retention_days         = 90
+      enable_delete_lock     = true
+      enable_monitoring      = true
+      min_node_count         = 3
+      max_node_count         = 10
+    }
+  }
+
+  # Normalize environment name
+  env_normalized = contains(["development", "dev"], lower(var.environment)) ? "development" : (
+    contains(["staging", "stg"], lower(var.environment)) ? "staging" : (
+      contains(["production", "prod", "prd"], lower(var.environment)) ? "production" : "development"
+    )
+  )
+
+  # Get environment-specific config with defaults
+  config = lookup(local.env_config, local.env_normalized, local.env_config.development)
+}
+
+# =============================================================================
+# Output Locals for Use in Modules
+# =============================================================================
+
+output "env_sku_tier" {
+  description = "Environment-appropriate SKU tier"
+  value       = local.config.sku_tier
+}
+
+output "env_redundancy" {
+  description = "Environment-appropriate redundancy level"
+  value       = local.config.redundancy
+}
+
+output "env_retention_days" {
+  description = "Environment-appropriate retention period"
+  value       = local.config.retention_days
+}
+
+output "env_enable_delete_lock" {
+  description = "Whether to enable delete lock for this environment"
+  value       = local.config.enable_delete_lock
+}
+
+output "env_enable_monitoring" {
+  description = "Whether to enable full monitoring for this environment"
+  value       = local.config.enable_monitoring
+}
+
+output "env_min_node_count" {
+  description = "Minimum node count for this environment"
+  value       = local.config.min_node_count
+}
+
+output "env_max_node_count" {
+  description = "Maximum node count for this environment"
+  value       = local.config.max_node_count
+}
