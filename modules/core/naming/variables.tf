@@ -4,9 +4,9 @@
 
 variable "organization_prefix" {
   description = <<-EOF
-    Organization/Company prefix for resource naming (3-8 characters).
+    Organization/Company prefix for resource naming (3-15 characters).
     This should be a short identifier for your org.
-    Examples: 'acme', 'contoso', 'myorg', 'abc'
+    Examples: 'acme', 'contoso', 'myorg', 'actionrunners'
     
     This becomes the first part of all resource names:
     {prefix}-{app}-{location}-{env}-{resource_type}
@@ -14,8 +14,8 @@ variable "organization_prefix" {
   EOF
   type        = string
   validation {
-    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9]{2,7}$", var.organization_prefix))
-    error_message = "Organization prefix must be 3-8 alphanumeric characters, starting with a letter."
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9]{2,14}$", var.organization_prefix))
+    error_message = "Organization prefix must be 3-15 alphanumeric characters, starting with a letter."
   }
 }
 
