@@ -125,16 +125,16 @@ resource "azurerm_role_assignment" "this" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "this" {
-  for_each = var.secrets
+  for_each = nonsensitive(toset(keys(var.secrets)))
 
   name            = each.key
-  value           = each.value.value
+  value           = var.secrets[each.key].value
   key_vault_id    = azurerm_key_vault.this.id
-  content_type    = lookup(each.value, "content_type", null)
-  expiration_date = lookup(each.value, "expiration_date", null)
-  not_before_date = lookup(each.value, "not_before_date", null)
+  content_type    = lookup(var.secrets[each.key], "content_type", null)
+  expiration_date = lookup(var.secrets[each.key], "expiration_date", null)
+  not_before_date = lookup(var.secrets[each.key], "not_before_date", null)
 
-  tags = lookup(each.value, "tags", {})
+  tags = lookup(var.secrets[each.key], "tags", {})
 
   depends_on = [
     azurerm_role_assignment.this

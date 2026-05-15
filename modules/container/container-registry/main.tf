@@ -33,14 +33,6 @@ resource "azurerm_container_registry" "this" {
           ip_range = ip_rule.value
         }
       }
-
-      dynamic "virtual_network" {
-        for_each = lookup(network_rule_set.value, "virtual_network_subnet_ids", [])
-        content {
-          action    = "Allow"
-          subnet_id = virtual_network.value
-        }
-      }
     }
   }
 
@@ -55,22 +47,8 @@ resource "azurerm_container_registry" "this" {
     }
   }
 
-  # Retention policy (Premium only)
-  dynamic "retention_policy" {
-    for_each = var.sku == "Premium" && var.retention_policy_days != null ? [1] : []
-    content {
-      days    = var.retention_policy_days
-      enabled = true
-    }
-  }
-
-  # Trust policy (Premium only)
-  dynamic "trust_policy" {
-    for_each = var.sku == "Premium" && var.content_trust_enabled ? [1] : []
-    content {
-      enabled = true
-    }
-  }
+  # Retention policy (Premium only) - attribute in azurerm 4.0
+  retention_policy_in_days = var.sku == "Premium" && var.retention_policy_days != null ? var.retention_policy_days : null
 
   # Encryption (Premium only with customer-managed key)
   dynamic "encryption" {
