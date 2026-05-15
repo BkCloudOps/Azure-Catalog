@@ -37,6 +37,12 @@ variable "dns_prefix_private_cluster" {
   default     = ""
 }
 
+variable "node_resource_group" {
+  description = "Name of the resource group for AKS nodes. If empty, Azure auto-generates (can be too long with some naming conventions)"
+  type        = string
+  default     = ""
+}
+
 # =============================================================================
 # Kubernetes Version
 # =============================================================================

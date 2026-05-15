@@ -73,7 +73,7 @@ resource "azurerm_kubernetes_cluster" "this" {
   location            = var.location
   resource_group_name = var.resource_group_name
   dns_prefix          = var.dns_prefix != "" ? var.dns_prefix : replace(var.naming.aks_cluster, "-", "")
-
+  node_resource_group = var.node_resource_group != "" ? var.node_resource_group : null
   # Kubernetes Version
   kubernetes_version         = var.kubernetes_version
   automatic_upgrade_channel  = var.automatic_channel_upgrade
